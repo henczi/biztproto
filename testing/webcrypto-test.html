@@ -1,0 +1,52 @@
+<script>
+  // (await decrypt(await encrypt('alma'))).data == 'alma'
+  async function init() {
+    var crypto = window.crypto;
+
+    window.key = await crypto.subtle.generateKey({
+      name: 'RSA-OAEP',
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: { name: 'SHA-256' }
+    }, true, ['encrypt', 'decrypt']);
+  }
+
+  async function encrypt(/*string*/ message) {
+    let messageBody = {
+      type: 'MESSAGE',
+      from: '',
+      guid: '',
+      data_type: 'TEXT',
+      data: message,
+      ts: +new Date,
+    };
+
+    // JSON string létrehozása az objektumból
+    let messageBodyString = JSON.stringify(messageBody);
+    // konvertálás ArrayBufferbe
+    let messageBodyArray = (new TextEncoder).encode(messageBodyString)
+
+    // titkosítás publikus kulcs segítségével
+    var buffer = await crypto.subtle.encrypt({name: 'RSA-OAEP'}, key.publicKey, messageBodyArray);
+
+    // ArrayBuffer -> base64 string konverzio
+    return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+  }
+
+  async function decrypt(/*string*/ data) {
+    // base64 string -> Uint8Array konverzio
+    let buffer = new Uint8Array(atob(data).split('').map(x => x.charCodeAt(0)));
+
+    // dekódolás privát kulcs segítségével
+    var messageBodyArray = await crypto.subtle.decrypt({name: 'RSA-OAEP'}, key.privateKey, buffer);
+
+    // ArrayBuffer dekódolása
+    let messageBodyString = (new TextDecoder).decode(messageBodyArray);
+    // JSON string parse
+    let messageBody = JSON.parse(messageBodyString);
+
+    return messageBody;
+  }
+
+  window.onload = () => init();
+</script>
