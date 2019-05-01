@@ -1,14 +1,38 @@
 <script>
   // (await decrypt(await encrypt('alma'))).data == 'alma'
+  const LS_KEY = 'keyPair';
+  const FORMAT_NAME = 'RSA-OAEP';
+  const HASH_FORMAT = 'SHA-256';
+  const ENC_DEC_ARR = ['encrypt','decrypt'];
+  const EXPORT_IMPORT_FORMAT = 'jwk';
+  const KEY_FORMAT = {
+    name: FORMAT_NAME,
+    modulusLength: 2048,
+    publicExponent: new Uint8Array([1, 0, 1]),
+    hash: { name: 'SHA-256' }
+  };
   async function init() {
     var crypto = window.crypto;
 
-    window.key = await crypto.subtle.generateKey({
-      name: 'RSA-OAEP',
-      modulusLength: 2048,
-      publicExponent: new Uint8Array([1, 0, 1]),
-      hash: { name: 'SHA-256' }
-    }, true, ['encrypt', 'decrypt']);
+    const ls_keypair = localStorage.getItem(LS_KEY)
+    if (ls_keypair) {
+      console.log('LOAD KEY...');
+      const parsedKey = JSON.parse(ls_keypair);
+      window.key = {
+        privateKey: await crypto.subtle.importKey(EXPORT_IMPORT_FORMAT, parsedKey.privateKey, { name: FORMAT_NAME, hash: HASH_FORMAT}, true, ['decrypt']),
+        publicKey: await crypto.subtle.importKey(EXPORT_IMPORT_FORMAT, parsedKey.publicKey, { name: FORMAT_NAME, hash: HASH_FORMAT}, true, ['encrypt'])
+      }
+    } else {
+      console.log('GENERATE KEY...');
+      window.key = await crypto.subtle.generateKey(KEY_FORMAT, true, ENC_DEC_ARR);
+      console.log('EXPORT KEY...');
+      const exportedKeyPair = {
+        privateKey: await crypto.subtle.exportKey(EXPORT_IMPORT_FORMAT, window.key.privateKey),
+        publicKey: await crypto.subtle.exportKey(EXPORT_IMPORT_FORMAT, window.key.publicKey)
+      };
+      localStorage.setItem(LS_KEY, JSON.stringify(exportedKeyPair));
+    }
+    console.log(localStorage.getItem(LS_KEY));
   }
 
   async function encrypt(/*string*/ message) {
@@ -27,7 +51,7 @@
     let messageBodyArray = (new TextEncoder).encode(messageBodyString)
 
     // titkosítás publikus kulcs segítségével
-    var buffer = await crypto.subtle.encrypt({name: 'RSA-OAEP'}, key.publicKey, messageBodyArray);
+    var buffer = await crypto.subtle.encrypt({name: FORMAT_NAME}, key.publicKey, messageBodyArray);
 
     // ArrayBuffer -> base64 string konverzio
     return btoa(String.fromCharCode(...new Uint8Array(buffer)));
@@ -38,7 +62,7 @@
     let buffer = new Uint8Array(atob(data).split('').map(x => x.charCodeAt(0)));
 
     // dekódolás privát kulcs segítségével
-    var messageBodyArray = await crypto.subtle.decrypt({name: 'RSA-OAEP'}, key.privateKey, buffer);
+    var messageBodyArray = await crypto.subtle.decrypt({name: FORMAT_NAME}, key.privateKey, buffer);
 
     // ArrayBuffer dekódolása
     let messageBodyString = (new TextDecoder).decode(messageBodyArray);
@@ -48,5 +72,5 @@
     return messageBody;
   }
 
-  window.onload = () => init();
+  window.onload = () => init().catch(e => console.log(e.message));
 </script>
