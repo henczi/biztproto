@@ -1,5 +1,40 @@
 const crypto = require('crypto');
 const readline = require('readline');
+const store = require('./store');
+
+store.init();
+
+function createSign(privateKey, data) {
+  const signer = crypto.createSign('SHA256');
+
+  signer.update(data);
+  signer.end();
+
+  return signer.sign(privateKey); // TODO: Buffer -> b64
+}
+
+function verifySign(publicKey, data, signature) {
+  const verifier = crypto.createVerify('SHA256');
+
+  verifier.update(data); // TODO: b64 -> Buffer
+  verifier.end();
+
+  return verifier.verify(publicKey, signature);
+}
+
+function createSymmetricKey() {
+  
+}
+
+
+let sign = createSign(store.getKey().privateKey, 'alma-áéáű');
+console.log('sign', sign);
+let verify = verifySign(store.getKey().publicKey, 'alma-áéáű', sign);
+console.log('verify', verify);
+
+
+
+
 
 const rl = readline.createInterface({
   input: process.stdin,
