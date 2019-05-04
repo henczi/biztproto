@@ -22,15 +22,39 @@ function verifySign(publicKey, data, signature) {
   return verifier.verify(publicKey, signature);
 }
 
-function createSymmetricKey() {
-  
+function encryptMessage(data) {
+  const key = "1234567890123456";
+  const nonce = crypto.randomBytes(12); // 96 bit
+  const counter0 = Buffer.alloc(4, 0);// 32 bit
+  const iv = Buffer.concat([nonce, counter0]);
+
+  const cipher = crypto.createCipheriv("aes-128-ctr", key, iv)
+
+  return {
+    key,
+    iv,
+    data: cipher.update(data, 'utf-8', 'base64') + cipher.final('base64')
+  };
 }
 
+function decryptMessage(key, iv, encryptedData) {
+  const cipher = crypto.createDecipheriv("aes-128-ctr", key, iv)
+  return {
+    key,
+    iv,
+    data: cipher.update(encryptedData, 'base64', 'utf8') + cipher.final('utf-8')
+  };
+}
 
 let sign = createSign(store.getKey().privateKey, 'alma-áéáű');
 console.log('sign', sign);
 let verify = verifySign(store.getKey().publicKey, 'alma-áéáű', sign);
 console.log('verify', verify);
+
+let encryped = encryptMessage('HELLoooo');
+console.log(encryped);
+let decrypted = decryptMessage(encryped.key, encryped.iv, encryped.data);
+console.log(decrypted);
 
 
 
