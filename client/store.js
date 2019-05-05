@@ -10,6 +10,7 @@ var data = {
   receiveTS: 0, // a legfrissebb fogadott üzenet küldési ideje
   groups: {},
   friends: {},
+  messages: {},
 }; // default data
 
 function getKeyPair() { return keyPair; }
@@ -17,6 +18,15 @@ function getData() { return data; }
 
 function getPublicKey() {
   return keyPair.publicKey;
+}
+
+function findFriendName(key) {
+  const entries = Object.entries(data.friends);
+  for (let i = 0; i < entries.length; i++) {
+    let [name, k] = entries[i];
+    if (k == key) return name;
+  }
+  return '???';
 }
 
 function updateLastReceivedTS(ts) {
@@ -100,6 +110,12 @@ function addGroup(guid, participants) {
   }
 }
 
+function addMessage(guid, plaintextMsg) {
+  data.messages[guid] = data.messages[guid] || [];
+  data.messages[guid].push(plaintextMsg);
+  writeData();
+}
+
 function init() {
   // Adatok felolvasása fájlból
   createOrReadKey();
@@ -114,4 +130,6 @@ module.exports = {
   addFriend,
   addGroup,
   updateLastReceivedTS,
+  findFriendName,
+  addMessage,
 }

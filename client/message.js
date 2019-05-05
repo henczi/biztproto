@@ -13,6 +13,10 @@ function startReceiveMessage() {
   receiveMessage();
 }
 
+/**
+ * Publikus kulcs SHA256 hashe base64 formátumban
+ * @param {*} publicKey 
+ */
 function hashPublicKey(publicKey) {
   return crypto.createHash('sha256').update(publicKey.replace(/\n/g, '').trim(), 'utf8').digest().toString('base64');
 }
@@ -77,8 +81,16 @@ function processHelloMessage(messageBody) {
 
 function processTextMessage(messageBody) {
   const sender = messageBody.from;
-  // TODO: kuldo neve
-  const messageText = `...: ${messageBody.data}`;
+  let senderName;
+  if (sender == store.getPublicKey()) {
+    senderName = 'Te';
+  } else {
+    senderName = store.findFriendName(sender);
+  }  
+  const messageText = `${senderName}: ${messageBody.data}`;
+  // Üzenet mentése
+  store.addMessage(messageBody.guid, messageText);
+  // Ha a csoport meg van nyitva, akkor az üzenet kiírása
   if (global.ACTIVE_CHAT_GROUP == messageBody.guid) {
     console.log(messageText);
   }

@@ -117,11 +117,16 @@ async function newFriend() {
 }
 
 async function groupChat(guid) {
+  console.clear();
   const participants = store.getData().groups[guid];
-  // TODO: előző üzenetek kiírása
+  const messages = store.getData().messages[guid] || [];
+  // Előző 10 üzenet kiírása
+  console.log('Utolsó 10 üzenet:');
+  messages.slice(-10).forEach(x => console.log(x));
+  // Aktív chat beállítása
   global.ACTIVE_CHAT_GROUP = guid;
   while (true) {
-    const text = await question('MESSAGE#>');
+    const text = await question('');
     // ':q!' - kilépés :D
     if (text == ':q!') break;
     if (text) {
@@ -129,7 +134,9 @@ async function groupChat(guid) {
       message.encryptAndSendMessageTo(signedTextMessage, participants);
     }
   }
+  // Aktív chat törlése
   global.ACTIVE_CHAT_GROUP = null;
+  console.clear();
 }
 
 message.startReceiveMessage();
