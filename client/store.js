@@ -1,29 +1,46 @@
 const crypto = require('crypto');
-const path = require('path');
 const fs = require('fs');
 
 const keyFile = './key.txt';
 const dataFile = './data.txt';
 
-var key = null; 
-var data = {};
+var keyPair = null; 
+var data = {
+  lastReceivedTS: 0, // az utolsó szervertől kiolvasott üzenet időpontja
+  receiveTS: 0, // a legfrissebb fogadott üzenet küldési ideje
+  groups: {},
+  friends: {},
+}; // default data
 
-function getKey() { return key; }
+function getKeyPair() { return keyPair; }
 function getData() { return data; }
 
+function getPublicKey() {
+  return keyPair.publicKey;
+}
+
+function updateLastReceivedTS(ts) {
+  if (ts > data.lastReceivedTS) {
+    data.lastReceivedTS = ts;
+    writeData();
+  }
+}
+
 function createOrReadKey() {
+  // Ha van kulcsfájl
   if (fs.existsSync(keyFile)) {
-    key = JSON.parse(fs.readFileSync(keyFile));
+    keyPair = JSON.parse(fs.readFileSync(keyFile)); // kulcs beolvasása fájlból
     console.log('[*] KEY LOADED');
+  // Ha nincs kulcsfájl
   } else {
-    key = createKeyPair();
-    fs.writeFileSync(keyFile, JSON.stringify(key));
+    keyPair = createKeyPair(); // új kulcs létrehozása
+    fs.writeFileSync(keyFile, JSON.stringify(keyPair)); // kulcs mentése fájlba
     console.log('[*] KEY GENERATED');
   }
-  console.log(key.publicKey);
 }
 
 function createKeyPair() {
+  // Új (4096 bites) RSA kulcs létrehozása 
   return crypto.generateKeyPairSync('rsa', {
     modulusLength: 4096,
     publicKeyEncoding: {
@@ -37,23 +54,64 @@ function createKeyPair() {
   });
 }
 
+/**
+ * Adatok beolvasása fájlból
+ */
 function readData() {
   if (fs.existsSync(dataFile)) {
     data = JSON.parse(fs.readFileSync(dataFile));
   }
 }
 
+/**
+ * Adatok kiírása fájlba
+ */
 function writeData() {
-  fs.writeFileSync(dataFile, JSON.stringify(data));
+  fs.writeFileSync(dataFile, JSON.stringify(data, null, '\t'));
+}
+
+/**
+ * Új barát felvétele
+ * @param {*} name 
+ * @param {*} pubKey 
+ */
+function addFriend(name, pubKey) {
+  if (!data.friends[name]) {
+    data.friends[name] = pubKey;
+    writeData(); // Mentés
+    return true; // Sikeres hozzáadás
+  } else {
+    return false; // Sikertelen hozzáadás
+  }
+}
+
+/**
+ * Új csoport létrehozása
+ * @param {*} guid 
+ * @param {*} participants 
+ */
+function addGroup(guid, participants) {
+  if (!data.groups[guid]) {
+    data.groups[guid] = participants;
+    writeData(); // Mentés
+    return true; // Sikeres hozzáadás
+  } else {
+    return false; // Sikertelen hozzáadás
+  }
 }
 
 function init() {
+  // Adatok felolvasása fájlból
   createOrReadKey();
   readData();
 }
 
 module.exports = {
-  getKey,
+  getKeyPair,
+  getPublicKey,
   getData,
   init,
+  addFriend,
+  addGroup,
+  updateLastReceivedTS,
 }

@@ -19,17 +19,24 @@ function requestHandler(req, res) {
     req.on('end', function () {
       console.log('body: ', body);
       _db[key] = _db[key] || [];
-      _db[key].push({ts: +new Date, data: body});
-      res.writeHead(201);
-      res.end();
+      _db[key].push({ts: +new Date, data: body}); // üzenet mentése
+      res.writeHead(201); // 201 - created
+      res.end(); // válasz küldése
     });
 
   // GET /get/<key>/<ts>
   } else if (req.method == 'GET' && action == 'get') {
-    var tfrom = +time || +new Date;
-    const ret = (_db[key] || []).filter(x => x.ts >= tfrom);
-    res.writeHead(200);
-    res.end(JSON.stringify(ret));
+    let tfrom;
+    if (time == null) {
+      tfrom = +new Date;
+    } else {
+      tfrom = +time;
+    }
+    const ret = (_db[key] || []).filter(x => x.ts > tfrom); // szürés keresett időre
+    res.writeHead(200); // 200 - OK
+    res.end(JSON.stringify(ret)); // válasz küldése
+
+  // Minden más eset - 200 OK - 'server'
   } else {
     res.writeHead(200);
     res.end('server');
