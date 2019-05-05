@@ -10,54 +10,72 @@ function createSign(privateKey, data) {
   signer.update(data);
   signer.end();
 
-  return signer.sign(privateKey); // TODO: Buffer -> b64
+  return signer.sign(privateKey).toString('base64');
 }
 
 function verifySign(publicKey, data, signature) {
   const verifier = crypto.createVerify('SHA256');
 
-  verifier.update(data); // TODO: b64 -> Buffer
+  verifier.update(data);
   verifier.end();
 
-  return verifier.verify(publicKey, signature);
+  return verifier.verify(publicKey, Buffer.from(signature, 'base64'));
 }
 
-function encryptMessage(data) {
+function createSymmetricKey() {
   const key = "1234567890123456";
   const nonce = crypto.randomBytes(12); // 96 bit
   const counter0 = Buffer.alloc(4, 0);// 32 bit
-  const iv = Buffer.concat([nonce, counter0]);
-
-  const cipher = crypto.createCipheriv("aes-128-ctr", key, iv)
-
-  return {
-    key,
-    iv,
-    data: cipher.update(data, 'utf-8', 'base64') + cipher.final('base64')
-  };
+  const iv = Buffer.concat([nonce, counter0]).toString('base64');
+  return {key, iv};
 }
 
-function decryptMessage(key, iv, encryptedData) {
-  const cipher = crypto.createDecipheriv("aes-128-ctr", key, iv)
-  return {
-    key,
-    iv,
-    data: cipher.update(encryptedData, 'base64', 'utf8') + cipher.final('utf-8')
-  };
+function encryptMessage({key, iv}, data) {
+  const cipher = crypto.createCipheriv("aes-128-ctr", key, Buffer.from(iv, 'base64'));
+  return cipher.update(data, 'utf-8', 'base64') + cipher.final('base64');
 }
+
+function decryptMessage({key, iv}, encryptedData) {
+  const cipher = crypto.createDecipheriv("aes-128-ctr", key, Buffer.from(iv, 'base64'))
+  return cipher.update(encryptedData, 'base64', 'utf8') + cipher.final('utf-8');
+}
+
+function publicEncryptKey(publicKey, {key, iv}) {
+  const keyStr = key + '|' + iv;
+  return crypto.publicEncrypt(publicKey, Buffer.from(keyStr)).toString('base64');
+}
+
+function privateDecryptKey(privateKey, encrypedKeyStr) {
+  const decrypedKeyStr = crypto.privateDecrypt(privateKey, Buffer.from(encrypedKeyStr, 'base64')).toString();
+  const [key, iv] = decrypedKeyStr.split('|');
+  return { key, iv };
+}
+
+/* --------- */
 
 let sign = createSign(store.getKey().privateKey, 'alma-áéáű');
 console.log('sign', sign);
 let verify = verifySign(store.getKey().publicKey, 'alma-áéáű', sign);
 console.log('verify', verify);
 
-let encryped = encryptMessage('HELLoooo');
-console.log(encryped);
-let decrypted = decryptMessage(encryped.key, encryped.iv, encryped.data);
-console.log(decrypted);
+/* --------- */
 
+let symmetricKey = createSymmetricKey();
+console.log('symmetric key', symmetricKey);
 
+let encryped = encryptMessage(symmetricKey, 'HELLoooo');
+console.log('encryped msg', encryped);
 
+let publicEncryptedSymmetricKey = publicEncryptKey(store.getKey().publicKey, symmetricKey);
+console.log('pub encr key', publicEncryptedSymmetricKey);
+
+let privateDecryptedSymmetricKey = privateDecryptKey(store.getKey().privateKey, publicEncryptedSymmetricKey);
+console.log('priv decr key', privateDecryptedSymmetricKey);
+
+let decrypted = decryptMessage(privateDecryptedSymmetricKey, encryped);
+console.log('decrypted msg', decrypted);
+
+/* --------- */
 
 
 const rl = readline.createInterface({
