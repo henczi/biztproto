@@ -14,6 +14,20 @@ function question(q) {
   return new Promise((r) => rl.question(q, r))
 }
 
+function readPubKey() {
+  return new Promise(resolve => {
+    let input = '';
+    const cb = (line) => {
+      input += line + '\n';
+      if (input.indexOf('-----END PUBLIC KEY-----') >= 0){
+        rl.removeListener('line', cb);
+        resolve(input);
+      }
+    }
+    rl.addListener('line', cb);
+  })
+}
+
 global.ACTIVE_CHAT_GROUP = null;
 
 const MENU = {
@@ -96,12 +110,7 @@ async function newFriend() {
   console.log('----UJ BARAT----');
   const name = await question('Név: ');
   console.log('Publikus kulcs: ');
-  let pubKey = '';
-  while(true) {
-    const line = await question('');
-    pubKey += line + '\n';
-    if (pubKey.indexOf('-----END PUBLIC KEY-----') >= 0) break;
-  }
+  let pubKey = await readPubKey();
   const result = store.addFriend(name, pubKey);
   console.log(result ? 'Sikere hozzáadás' : 'Sikertelen hozzáadás');
   await question('#>');
