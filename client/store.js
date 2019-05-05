@@ -15,20 +15,22 @@ var data = {
 
 function getKeyPair() { return keyPair; }
 function getData() { return data; }
-
-function getPublicKey() {
-  return keyPair.publicKey;
-}
+function getPublicKey() { return keyPair.publicKey; }
 
 function findFriendName(key) {
   const entries = Object.entries(data.friends);
+  // Keresés a barátok közt
   for (let i = 0; i < entries.length; i++) {
     let [name, k] = entries[i];
-    if (k == key) return name;
+    if (k == key) return name; // első egyezés nevének visszadása
   }
-  return '???';
+  return '???'; // ha nem ismert
 }
 
+/**
+ * lastReceivedTS frissítése, ha van újabb fogadott üzenet
+ * @param {*} ts 
+ */
 function updateLastReceivedTS(ts) {
   if (ts > data.lastReceivedTS) {
     data.lastReceivedTS = ts;

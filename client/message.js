@@ -21,6 +21,9 @@ function hashPublicKey(publicKey) {
   return crypto.createHash('sha256').update(publicKey.replace(/\n/g, '').trim(), 'utf8').digest().toString('base64');
 }
 
+/**
+ * Új üzenetek kiolvaásasa a szerveren lévő üzenetsorból
+ */
 function receiveMessage() {
   const options = {
     hostname: REMOTE_HOST,
@@ -36,9 +39,15 @@ function receiveMessage() {
     res.on('end', () => {
 
       const messages = JSON.parse(data); // Üzenetek
+      // Minden üzenetre
       for(let i = 0; i < messages.length; i++) {
         const item = messages[i];
-        store.updateLastReceivedTS(item.ts); // idő frisssítés
+        // idő frisssítés
+        // Ha van újabb beérkezési idővel rendelkező fogadott üzenet,
+        // akkor az utolsó fogadott üzenet időpontját frissíti,
+        // így a továbbiakban csak az újabb üzeneteket kéri le
+        store.updateLastReceivedTS(item.ts);
+        // Üzenet tartalmának feldolgozása
         processMessage(item.data);
       }
 
@@ -73,29 +82,52 @@ function processMessage(messageString) {
   }
 }
 
+/**
+ * Hello üzenet feldolgozása
+ * @param {*} messageBody 
+ */
 function processHelloMessage(messageBody) {
   // TODO: csoport kérelmek tiltása/engedélyezése
   // Minden csoport engedélyezve
   store.addGroup(messageBody.guid, messageBody.participants);
 }
 
+/**
+ * Szöveges üzenet feldolgozása
+ * @param {*} messageBody 
+ */
 function processTextMessage(messageBody) {
-  const sender = messageBody.from;
+  const sender = messageBody.from; // küldő fél
+
+  // Küldő nevének meghatározása
   let senderName;
+  // Saját üzenet
   if (sender == store.getPublicKey()) {
     senderName = 'Te';
+  
+  // Más által küldött
   } else {
-    senderName = store.findFriendName(sender);
-  }  
+    senderName = store.findFriendName(sender); // Küldő nevének lekérése
+  }
+
+
+  // Kiírandó üzenet
   const messageText = `${senderName}: ${messageBody.data}`;
+
   // Üzenet mentése
   store.addMessage(messageBody.guid, messageText);
+
   // Ha a csoport meg van nyitva, akkor az üzenet kiírása
   if (global.ACTIVE_CHAT_GROUP == messageBody.guid) {
     console.log(messageText);
   }
 }
 
+/**
+ * Üzenet küldése a szervernek
+ * @param {*} to 
+ * @param {*} data 
+ */
 function sendMessage(to, data) {
   var options = {
     hostname: REMOTE_HOST,
@@ -130,13 +162,18 @@ function encryptAndSendMessageTo(signedMessage, participants) {
 
   // Minden résztvevőnek
   for (let i = 0; i < participants.length; i++) {
-    const p = participants[i]; // résztvevő
-    const publicEncryptedSymmetricKey = mc.publicEncryptKey(p, symmetricKey); // kulcs tikosítás a címzett (résztvevő) publikus kulcsával
+    // résztvevő
+    const p = participants[i];
+
+    // kulcs tikosítás a címzett (résztvevő) publikus kulcsával
+    const publicEncryptedSymmetricKey = mc.publicEncryptKey(p, symmetricKey); 
+
     // üzenet
     const message = {
       encrypted_symmetric_key: publicEncryptedSymmetricKey,
       encrypted_data: encrypedMessage,
     };
+
     const messageString = JSON.stringify(message); // konvertálás szöveggé
     sendMessage(hashPublicKey(p), messageString); // küldés
   }
@@ -150,7 +187,7 @@ function signMessage(keyPair, messageBody) {
   const messageBodyString = JSON.stringify(messageBody); // objektum szöveggé konvertálása
   const signedMessage = {
     message_body: messageBodyString,
-    message_sign: mc.createSign(keyPair.privateKey, messageBodyString) // aláírás
+    message_sign: mc.createSign(keyPair.privateKey, messageBodyString) // aláírás létrehozása
   };
   return signedMessage;
 }
@@ -163,7 +200,7 @@ function createHelloMessage(keyPair, guid, participants) {
     participants: participants,
     ts: +new Date
   };
-  return signMessage(keyPair, messageBody);
+  return signMessage(keyPair, messageBody); // aláírás
 }
 
 function createTextMessage(keyPair, guid, msg) {
@@ -175,7 +212,7 @@ function createTextMessage(keyPair, guid, msg) {
     data_type: "TEXT",
     data: msg,
   };
-  return signMessage(keyPair, messageBody);
+  return signMessage(keyPair, messageBody); // aláírás
 }
 
 module.exports = {

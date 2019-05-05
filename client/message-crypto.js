@@ -63,13 +63,13 @@ function decryptMessage({key, iv}, encryptedData) {
 }
 
 function publicEncryptKey(publicKey, {key, iv}) {
-  const keyStr = key + '|' + iv;
+  const keyStr = key + '|' + iv; // kulcs és iv (counter állapot) összefűzése
   return crypto.publicEncrypt(publicKey, Buffer.from(keyStr)).toString('base64');
 }
 
-function privateDecryptKey(privateKey, encrypedKeyStr) {
+function privateDecryptKey(privateKey, encrypedKeyStr /* base64 */) {
   const decrypedKeyStr = crypto.privateDecrypt(privateKey, Buffer.from(encrypedKeyStr, 'base64')).toString();
-  const [key, iv] = decrypedKeyStr.split('|');
+  const [key, iv] = decrypedKeyStr.split('|'); // kulcs és iv (counter állapot) szétválasztása
   return { key, iv };
 }
 
