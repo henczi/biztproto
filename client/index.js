@@ -42,6 +42,7 @@ async function menu() {
 
 async function printPublicKey() {
   console.log(store.getKeyPair().publicKey);
+  await question('#>');
 }
 
 async function groups() {
@@ -94,7 +95,13 @@ async function friends() {
 async function newFriend() {
   console.log('----UJ BARAT----');
   const name = await question('Név: ');
-  const pubKey = await question('Publikus kulcs: ');
+  console.log('Publikus kulcs: ');
+  let pubKey = '';
+  while(true) {
+    const line = await question('');
+    pubKey += line + '\n';
+    if (pubKey.indexOf('-----END PUBLIC KEY-----') >= 0) break;
+  }
   const result = store.addFriend(name, pubKey);
   console.log(result ? 'Sikere hozzáadás' : 'Sikertelen hozzáadás');
   await question('#>');

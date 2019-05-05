@@ -22,7 +22,7 @@ function receiveMessage() {
     hostname: REMOTE_HOST,
     port: REMOTE_PORT,
     // /get/<user>/<start_time>
-    path: '/get/' + hashPublicKey(store.getPublicKey()) + '/' + store.getData().lastReceivedTS,
+    path: '/get/' + encodeURIComponent(hashPublicKey(store.getPublicKey())) + '/' + store.getData().lastReceivedTS,
     method: 'get'
   };
   // Új üzenetek lekérdezése
@@ -88,7 +88,7 @@ function sendMessage(to, data) {
   var options = {
     hostname: REMOTE_HOST,
     port: REMOTE_PORT,
-    path: '/send/' + to,
+    path: '/send/' + encodeURIComponent(to),
     method: 'POST',
     headers: {
          'Content-Type': 'text/plain',
