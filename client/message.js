@@ -60,6 +60,31 @@ function receiveMessage() {
   req.end();
 }
 
+/**
+ * Visszajátszás ellenőrzése
+ * @param {*} ts
+ * @param {*} data 
+ */
+function replayDetect(ts, data) {
+  // ablakon kívüli üzenetek törlése
+  store.receiveWindowRemoveOld();
+
+  // túl régi - az ablakon kívüli üzent
+  if (ts < (store.getData().receiveWindowTS - store.getData().receiveWindowSize)) {
+    return 'Ablakon kívüli üzenet';
+  }
+
+  // már korábban fogadott üzenet (az időablakon belül fogadott üzenetek küzt már megtalálható)
+  if (store.getData().receiveWindow.filter(x => x.data == data).length > 0) {
+    return 'Korábban már fogadott üzenet';
+  }
+
+  // nem visszajátszás
+  // üzenet mentése
+  store.addItemToWindow(ts, data);
+  return false;
+}
+
 function processMessage(messageString) {
   const messageObj = JSON.parse(messageString); // Üzenet parseolása
   const symmetricKey = mc.privateDecryptKey(store.getKeyPair().privateKey, messageObj.encrypted_symmetric_key); // szimmetrikus kulcs dekódolása
@@ -68,7 +93,12 @@ function processMessage(messageString) {
   const messageBodyObj = JSON.parse(decryptedMessageObj.message_body); // üzenet tartalmának parseolása
   const verified = mc.verifySign(messageBodyObj.from, decryptedMessageObj.message_body, decryptedMessageObj.message_sign); // aláírás ellenőrzése
 
-  // TODO: visszajátszás detektálás
+  // visszajátszás detektálás
+  const replayDetectResult = replayDetect(messageBodyObj.ts, decryptedMessageObj.message_body);
+  if (replayDetectResult) {
+    console.info('[[INFO]]: Visszajátszás! - ' + replayDetectResult);
+    return; // üzent eldobása
+  }
 
   // ellenőrzőtt aláírás
   if (verified) {
@@ -87,9 +117,11 @@ function processMessage(messageString) {
  * @param {*} messageBody 
  */
 function processHelloMessage(messageBody) {
-  // TODO: csoport kérelmek tiltása/engedélyezése
-  // Minden csoport engedélyezve
-  store.addGroup(messageBody.guid, messageBody.participants);
+  // csoport kérelmek engedélyezése csak ismerős számára
+  if (store.isFriend(messageBody.from) || store.equalsPK(messageBody.from, store.getPublicKey()))
+    store.addGroup(messageBody.guid, messageBody.participants);
+  else
+    console.info('[[INFO]]: Csoportkérelem ismeretlen felhasználótól!');
 }
 
 /**
@@ -99,10 +131,17 @@ function processHelloMessage(messageBody) {
 function processTextMessage(messageBody) {
   const sender = messageBody.from; // küldő fél
 
+  // üzenet elfogadása csak a csoport tagjától
+  if (!store.isUserInGroup(messageBody.guid, messageBody.from)){
+    // ha az üzenet küldője nem tagja a csoportnak,
+    // akkor az üzenetet eldobjuk
+    return;
+  }
+
   // Küldő nevének meghatározása
   let senderName;
   // Saját üzenet
-  if (sender == store.getPublicKey()) {
+  if (store.equalsPK(sender, store.getPublicKey())) {
     senderName = 'Te';
   
   // Más által küldött

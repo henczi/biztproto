@@ -6,16 +6,20 @@ const dataFile = './data.txt';
 
 var keyPair = null; 
 var data = {
+  receiveWindowSize: 300000, /* ms */
   lastReceivedTS: 0, // az utolsó szervertől kiolvasott üzenet időpontja
-  receiveTS: 0, // a legfrissebb fogadott üzenet küldési ideje
+  receiveWindowTS: 0, // a legfrissebb fogadott üzenet küldési ideje
   groups: {},
   friends: {},
   messages: {},
+  receiveWindow: [],
 }; // default data
 
 function getKeyPair() { return keyPair; }
 function getData() { return data; }
 function getPublicKey() { return keyPair.publicKey; }
+
+function equalsPK(pk1, pk2) { return pk1.replace(/\n/g, '').trim() == pk2.replace(/\n/g, '').trim(); }
 
 function findFriendName(key) {
   const entries = Object.entries(data.friends);
@@ -25,6 +29,27 @@ function findFriendName(key) {
     if (k == key) return name; // első egyezés nevének visszadása
   }
   return '???'; // ha nem ismert
+}
+
+/**
+ * Ablakon kívüli üzenetek törlése
+ */
+function receiveWindowRemoveOld() {
+  data.receiveWindow = data.receiveWindow.filter(x => x.ts >= (data.receiveWindowTS - data.receiveWindowSize));
+  writeData();
+}
+
+/**
+ * Új elem hozzáadása a fogadási ablakhoz
+ * @param {*} ts 
+ * @param {*} data 
+ */
+function addItemToWindow(ts, item) {
+  if (ts > data.receiveWindowTS) {
+    data.receiveWindowTS = ts;
+  }
+  data.receiveWindow.push({ ts, data: item });
+  writeData();
 }
 
 /**
@@ -97,6 +122,16 @@ function addFriend(name, pubKey) {
   }
 }
 
+function isFriend(userPubKey) {
+  const friendList = Object.values(data.friends);
+  for (let i = 0; i < friendList.length; i++) {
+    const item = friendList[i];
+    if (equalsPK(userPubKey, item))
+      return true;
+  }
+  return false;
+}
+
 /**
  * Új csoport létrehozása
  * @param {*} guid 
@@ -112,6 +147,16 @@ function addGroup(guid, participants) {
   }
 }
 
+function isUserInGroup(guid, userPubKey) {
+  if (!data.groups[guid]) return;
+  for (let i = 0; i < data.groups[guid].length; i++) {
+    const item = data.groups[guid][i];
+    if (equalsPK(userPubKey, item))
+      return true;
+  }
+  return false;
+}
+
 function addMessage(guid, plaintextMsg) {
   data.messages[guid] = data.messages[guid] || [];
   data.messages[guid].push(plaintextMsg);
@@ -125,6 +170,7 @@ function init() {
 }
 
 module.exports = {
+  equalsPK,
   getKeyPair,
   getPublicKey,
   getData,
@@ -134,4 +180,8 @@ module.exports = {
   updateLastReceivedTS,
   findFriendName,
   addMessage,
+  receiveWindowRemoveOld,
+  addItemToWindow,
+  isUserInGroup,
+  isFriend,
 }
