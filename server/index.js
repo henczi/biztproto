@@ -21,7 +21,7 @@ function requestHandler(req, res) {
       _db[key] = _db[key] || [];
       _db[key].push({ts: +new Date, data: body}); // üzenet mentése
       res.writeHead(201); // 201 - created
-      res.end(); // válasz küldése
+      res.end('{}'); // válasz küldése
     });
 
   // GET /get/<key>/<ts>

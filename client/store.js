@@ -7,8 +7,8 @@ const dataFile = './data.txt';
 var keyPair = null; 
 var data = {
   receiveWindowSize: 300000, /* ms */
-  lastReceivedTS: 0, // az utolsó szervertől kiolvasott üzenet időpontja
-  receiveWindowTS: 0, // a legfrissebb fogadott üzenet küldési ideje
+  lastReceivedTS: 0, // az utolsó szervertől kiolvasott üzenet időpontja (message queue)
+  receiveWindowTS: 0, // a legfrissebb fogadott üzenet küldési ideje (replay window)
   groups: {},
   friends: {},
   messages: {},
@@ -21,12 +21,15 @@ function getPublicKey() { return keyPair.publicKey; }
 
 function equalsPK(pk1, pk2) { return pk1.replace(/\n/g, '').trim() == pk2.replace(/\n/g, '').trim(); }
 
+/**
+ * Ismerős nevének lekérése publikus kulcs alapján
+ */
 function findFriendName(key) {
   const entries = Object.entries(data.friends);
-  // Keresés a barátok közt
+  // Keresés az ismerősők közt
   for (let i = 0; i < entries.length; i++) {
     let [name, k] = entries[i];
-    if (k == key) return name; // első egyezés nevének visszadása
+    if (equalsPK(k, key)) return name; // első egyezés nevének visszadása
   }
   return '???'; // ha nem ismert
 }
@@ -45,9 +48,11 @@ function receiveWindowRemoveOld() {
  * @param {*} data 
  */
 function addItemToWindow(ts, item) {
+  // újabb üzenet esetén
   if (ts > data.receiveWindowTS) {
-    data.receiveWindowTS = ts;
+    data.receiveWindowTS = ts; // TS frissítése
   }
+  // beszúrás az ablakon belül vett adatok közé
   data.receiveWindow.push({ ts, data: item });
   writeData();
 }
@@ -76,6 +81,9 @@ function createOrReadKey() {
   }
 }
 
+/**
+ * Új RSA kulcspár létrehozása
+ */
 function createKeyPair() {
   // Új (4096 bites) RSA kulcs létrehozása 
   return crypto.generateKeyPairSync('rsa', {
@@ -122,11 +130,14 @@ function addFriend(name, pubKey) {
   }
 }
 
+/**
+ * Ismerettség lekérdezése publikus kulcs alapján
+ */
 function isFriend(userPubKey) {
   const friendList = Object.values(data.friends);
   for (let i = 0; i < friendList.length; i++) {
     const item = friendList[i];
-    if (equalsPK(userPubKey, item))
+    if (equalsPK(userPubKey, item)) // első egyezés esetén igaz
       return true;
   }
   return false;
@@ -147,6 +158,9 @@ function addGroup(guid, participants) {
   }
 }
 
+/**
+ * Felhasználó csoporttagságának ellenőrzése publikus kulcs alapján
+ */
 function isUserInGroup(guid, userPubKey) {
   if (!data.groups[guid]) return;
   for (let i = 0; i < data.groups[guid].length; i++) {
@@ -157,6 +171,9 @@ function isUserInGroup(guid, userPubKey) {
   return false;
 }
 
+/**
+ * Fogadott üzenet mentése
+ */
 function addMessage(guid, plaintextMsg) {
   data.messages[guid] = data.messages[guid] || [];
   data.messages[guid].push(plaintextMsg);

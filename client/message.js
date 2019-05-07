@@ -14,7 +14,7 @@ function startReceiveMessage() {
 }
 
 /**
- * Publikus kulcs SHA256 hashe base64 formátumban
+ * Publikus kulcs SHA256 hash base64 formátumban
  * @param {*} publicKey 
  */
 function hashPublicKey(publicKey) {
@@ -22,7 +22,7 @@ function hashPublicKey(publicKey) {
 }
 
 /**
- * Új üzenetek kiolvaásasa a szerveren lévő üzenetsorból
+ * Új üzenetek kiolvasása a szerveren lévő üzenetsorból
  */
 function receiveMessage() {
   const options = {
@@ -66,7 +66,7 @@ function receiveMessage() {
  * @param {*} data 
  */
 function replayDetect(ts, data) {
-  // ablakon kívüli üzenetek törlése
+  // ablakon kívüli tárolt üzenetek törlése
   store.receiveWindowRemoveOld();
 
   // túl régi - az ablakon kívüli üzent
@@ -74,20 +74,20 @@ function replayDetect(ts, data) {
     return 'Ablakon kívüli üzenet';
   }
 
-  // már korábban fogadott üzenet (az időablakon belül fogadott üzenetek küzt már megtalálható)
+  // már korábban fogadott üzenet (az időablakon belül fogadott üzenetek közt már megtalálható)
   if (store.getData().receiveWindow.filter(x => x.data == data).length > 0) {
     return 'Korábban már fogadott üzenet';
   }
 
   // nem visszajátszás
-  // üzenet mentése
+  // üzenet mentése az ablakon belül fogadott üzenetekbe
   store.addItemToWindow(ts, data);
   return false;
 }
 
 function processMessage(messageString) {
   const messageObj = JSON.parse(messageString); // Üzenet parseolása
-  const symmetricKey = mc.privateDecryptKey(store.getKeyPair().privateKey, messageObj.encrypted_symmetric_key); // szimmetrikus kulcs dekódolása
+  const symmetricKey = mc.privateDecryptKey(store.getKeyPair().privateKey, messageObj.encrypted_symmetric_key); // szimmetrikus kulcs (és counter) dekódolása
   const decryptedMessageString = mc.decryptMessage(symmetricKey, messageObj.encrypted_data); // üzenet dekódolása a szimmetrikus kulcs segítségével
   const decryptedMessageObj = JSON.parse(decryptedMessageString); // dekódolt üzenet parseolása
   const messageBodyObj = JSON.parse(decryptedMessageObj.message_body); // üzenet tartalmának parseolása
@@ -156,7 +156,7 @@ function processTextMessage(messageBody) {
   // Üzenet mentése
   store.addMessage(messageBody.guid, messageText);
 
-  // Ha a csoport meg van nyitva, akkor az üzenet kiírása
+  // Ha a csoport chat meg van nyitva, akkor az üzenet kiírása a konzolra
   if (global.ACTIVE_CHAT_GROUP == messageBody.guid) {
     console.log(messageText);
   }
@@ -196,7 +196,7 @@ function sendMessage(to, data) {
 
 function encryptAndSendMessageTo(signedMessage, participants) {
   const symmetricKey = mc.createSymmetricKey(); // Szimmetrikus kulcs létrehozása
-  const signedMessageString = JSON.stringify(signedMessage); // Konvertálás szöveggé
+  const signedMessageString = JSON.stringify(signedMessage); // sorosítás
   const encrypedMessage = mc.encryptMessage(symmetricKey, signedMessageString); // Szimmetrikus kulcsú tirkosítás
 
   // Minden résztvevőnek
@@ -213,8 +213,8 @@ function encryptAndSendMessageTo(signedMessage, participants) {
       encrypted_data: encrypedMessage,
     };
 
-    const messageString = JSON.stringify(message); // konvertálás szöveggé
-    sendMessage(hashPublicKey(p), messageString); // küldés
+    const messageString = JSON.stringify(message); // sorosítás
+    sendMessage(hashPublicKey(p), messageString); // küldés a résztvevőnek
   }
 }
 
@@ -223,7 +223,7 @@ function encryptAndSendMessageTo(signedMessage, participants) {
  * @param {*} messageBody 
  */
 function signMessage(keyPair, messageBody) {
-  const messageBodyString = JSON.stringify(messageBody); // objektum szöveggé konvertálása
+  const messageBodyString = JSON.stringify(messageBody); // objektum sorosítása
   const signedMessage = {
     message_body: messageBodyString,
     message_sign: mc.createSign(keyPair.privateKey, messageBodyString) // aláírás létrehozása
